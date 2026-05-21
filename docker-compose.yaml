@@ -1,0 +1,63 @@
+name: shipyard
+
+services:
+  frontend:
+    build:
+      context: ./shipyard-frontend
+      # Vite needs these values at build time.
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:4571}
+        - VITE_SOCKET_URL=${VITE_SOCKET_URL:-http://localhost:4571}
+        - VITE_CURRENT_DOMAIN=${VITE_CURRENT_DOMAIN:-localhost}
+    image: shipyard-frontend-image
+    container_name: shipyard-frontend-container
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - shipyard-net
+
+  backend:
+    build:
+      context: ./shipyard-api
+    image: shipyard-api-image
+    container_name: shipyard-api-container
+    ports:
+      - "4571:4571"
+    restart: unless-stopped
+    networks:
+      - shipyard-net
+    environment:
+      - PORT=${PORT:-4571}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - ECS_CLUSTER_NAME=${ECS_CLUSTER_NAME}
+      - ECS_TASK_DEFINITION=${ECS_TASK_DEFINITION}
+      - ECS_CLUSTER_SUBNETS_1=${ECS_CLUSTER_SUBNETS_1}
+      - ECS_CLUSTER_SUBNETS_2=${ECS_CLUSTER_SUBNETS_2}
+      - ECS_CLUSTER_SUBNETS_3=${ECS_CLUSTER_SUBNETS_3}
+      - ECS_CLUSTER_SECURITY_GROUP=${ECS_CLUSTER_SECURITY_GROUP}
+      - ECS_CONTAINER_NAME=${ECS_CONTAINER_NAME:-shipyard-build-server-img}
+      - VALKEY_AIVEN_URI=${VALKEY_AIVEN_URI}
+      - FRONTEND_URL=${FRONTEND_URL:-*}
+
+  reverse-proxy:
+    build:
+      context: ./shipyard-reverse-proxy
+    image: shipyard-reverse-proxy-image
+    container_name: shipyard-reverse-proxy-container
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - shipyard-net
+    environment:
+      - REVERSE_PROXY_PORT=${REVERSE_PROXY_PORT:-80}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-shipyard-bucket}
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+
+networks:
+  shipyard-net:
+    driver: bridge
